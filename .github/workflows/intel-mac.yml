@@ -1,31 +1,26 @@
-name: Intel macOS build
+      - name: Build and install
+        run: just install
 
-on:
-  workflow_dispatch:   # run manually from the Actions tab
+      - name: Show what was produced
+        run: |
+          echo "--- app bundle ---"
+          ls -la ~/Applications/ || true
+          echo "--- binaries in target ---"
+          find target -maxdepth 3 -type f -perm +111 -name "herdr*" || true
+          echo "--- local bin ---"
+          ls -la ~/.local/bin || true
 
-jobs:
-  build:
-    runs-on: macos-15-intel
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - name: Package
+        run: |
+          mkdir -p out
+          if [ -d "$HOME/Applications/Herdr.app" ]; then
+            ditto -c -k --sequesterRsrc --keepParent "$HOME/Applications/Herdr.app" out/Herdr-macos-x86_64.zip
+          fi
+          find target/release -maxdepth 1 -type f -name "herdr-app*" -exec cp {} out/ \; || true
+          ls -la out
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.95.0
-
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.16.0
-
-      - uses: extractions/setup-just@v2
-
-      - name: Build
-        run: just build
-
-      # Adjust the paths below after checking what `just build` / `just install` produce
       - uses: actions/upload-artifact@v4
         with:
           name: herdr-app-macos-x86_64
-          path: target/release/herdr-app
+          path: out/*
+          if-no-files-found: error
